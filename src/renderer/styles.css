@@ -1,0 +1,117 @@
+:root {
+  --bg: #1e1e24;
+  --panel: #26262e;
+  --fg: #e6e6ea;
+  --muted: #6f6f7c;
+  --result: #8fd3a4;
+  --error: #d98f8f;
+  --border: #33333d;
+  /* syntax tokens (dark) */
+  --tok-variable: #82aaff;
+  --tok-number: #7fd88f;
+  --tok-operator: #9a9aa8;
+  --tok-keyword: #e0a060;
+  --tok-comment: #6f6f7c;
+  --font-size: 15px;
+}
+:root[data-theme='light'] {
+  --bg: #faf9f7;
+  --panel: #ffffff;
+  --fg: #232326;
+  --muted: #9a9aa2;
+  --result: #1f8a4c;
+  --error: #b23b3b;
+  --border: #e2e0dc;
+  /* syntax tokens (light) */
+  --tok-variable: #2f6fdb;
+  --tok-number: #1f8a4c;
+  --tok-operator: #8a8a92;
+  --tok-keyword: #b5701f;
+  --tok-comment: #9a9aa2;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 ui-monospace, "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* Title bar: filename right-aligned */
+.titlebar {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 6px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.filename {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pad {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 160px;
+}
+
+/* Editor is a transparent textarea layered over a synced highlight div. */
+.editor-wrap { position: relative; overflow: hidden; }
+.layer {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  font-family: ui-monospace, "JetBrains Mono", "Fira Code", monospace;
+  font-size: var(--font-size);
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 4;
+}
+.highlight {
+  color: var(--fg);
+  background: var(--bg);
+  pointer-events: none;
+  z-index: 0;
+}
+.editor {
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--fg);
+  z-index: 1;
+}
+
+/* syntax token colors */
+.tok-variable { color: var(--tok-variable); }
+.tok-number   { color: var(--tok-number); }
+.tok-operator { color: var(--tok-operator); }
+.tok-keyword  { color: var(--tok-keyword); }
+.tok-comment  { color: var(--tok-comment); font-style: italic; }
+
+.results {
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  padding: 14px 16px;
+  font-size: var(--font-size);
+  line-height: 1.5;
+  overflow: hidden;
+  text-align: right;
+  white-space: pre;
+}
+.results .r { color: var(--result); min-height: 1.5em; }
+.results .r.err { color: var(--error); cursor: help; }
+.results .r.copyable { cursor: pointer; }

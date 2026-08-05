@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'none'; script-src 'self'; style-src 'self';" />
+    <title>TallyPad</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="titlebar">
+      <span id="filename" class="filename">Untitled</span>
+    </header>
+    <main class="pad">
+      <div class="editor-wrap">
+        <div id="highlight" class="layer highlight" aria-hidden="true"></div>
+        <textarea id="editor" class="layer editor" spellcheck="false" autofocus
+          placeholder="billy = 10,000&#10;crystal = 5,000&#10;total = billy + crystal"></textarea>
+      </div>
+      <div id="results" class="results" aria-hidden="true"></div>
+    </main>
+    <script type="module" src="./renderer.js"></script>
+  </body>
+</html>

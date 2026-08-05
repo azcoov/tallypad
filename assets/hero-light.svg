@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="352" viewBox="0 0 660 352" role="img" aria-label="TallyPad calculating an invoice: expressions on the left, live results on the right">
+  <defs>
+    <clipPath id="win">
+      <rect x="20" y="16" width="620" height="316" rx="12"/>
+    </clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#8a857c" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <rect x="20" y="16" width="620" height="316" rx="12" fill="#faf9f7" filter="url(#shadow)"/>
+
+  <g clip-path="url(#win)">
+    <rect x="20" y="16" width="620" height="36" fill="#ffffff"/>
+    <rect x="460" y="52" width="180" height="280" fill="#ffffff"/>
+    <line x1="20" y1="52" x2="640" y2="52" stroke="#e2e0dc" stroke-width="1"/>
+    <line x1="460" y1="52" x2="460" y2="332" stroke="#e2e0dc" stroke-width="1"/>
+  </g>
+
+  <text x="616" y="40" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" fill="#9a9aa2">october-invoice.txt</text>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="16">
+    <text x="44" y="82" xml:space="preserve"><tspan fill="#9a9aa2" font-style="italic"># October invoice</tspan></text>
+    <text x="44" y="108" xml:space="preserve"><tspan fill="#2f6fdb">design</tspan><tspan fill="#232326">    </tspan><tspan fill="#8a8a92">=</tspan><tspan fill="#232326"> </tspan><tspan fill="#1f8a4c">$2,400</tspan></text>
+    <text x="44" y="134" xml:space="preserve"><tspan fill="#2f6fdb">build</tspan><tspan fill="#232326">     </tspan><tspan fill="#8a8a92">=</tspan><tspan fill="#232326"> </tspan><tspan fill="#1f8a4c">$6,800</tspan></text>
+    <text x="44" y="160" xml:space="preserve"><tspan fill="#2f6fdb">revisions</tspan><tspan fill="#232326"> </tspan><tspan fill="#8a8a92">=</tspan><tspan fill="#232326"> </tspan><tspan fill="#1f8a4c">$950</tspan></text>
+    <text x="44" y="186" xml:space="preserve"><tspan fill="#2f6fdb">subtotal</tspan><tspan fill="#232326">  </tspan><tspan fill="#8a8a92">=</tspan><tspan fill="#232326"> </tspan><tspan fill="#2f6fdb">design</tspan><tspan fill="#232326"> </tspan><tspan fill="#8a8a92">+</tspan><tspan fill="#232326"> </tspan><tspan fill="#2f6fdb">build</tspan><tspan fill="#232326"> </tspan><tspan fill="#8a8a92">+</tspan><tspan fill="#232326"> </tspan><tspan fill="#2f6fdb">revisions</tspan></text>
+    <text x="44" y="238" xml:space="preserve"><tspan fill="#2f6fdb">tax</tspan><tspan fill="#232326">   </tspan><tspan fill="#8a8a92">=</tspan><tspan fill="#232326"> </tspan><tspan fill="#1f8a4c">8.5</tspan><tspan fill="#8a8a92">%</tspan><tspan fill="#232326"> </tspan><tspan fill="#b5701f">of</tspan><tspan fill="#232326"> </tspan><tspan fill="#2f6fdb">subtotal</tspan></text>
+    <text x="44" y="264" xml:space="preserve"><tspan fill="#2f6fdb">total</tspan><tspan fill="#232326"> </tspan><tspan fill="#8a8a92">=</tspan><tspan fill="#232326"> </tspan><tspan fill="#2f6fdb">subtotal</tspan><tspan fill="#232326"> </tspan><tspan fill="#8a8a92">+</tspan><tspan fill="#232326"> </tspan><tspan fill="#2f6fdb">tax</tspan></text>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="16">
+    <text x="616" y="108" text-anchor="end" fill="#1f8a4c">$2,400.00</text>
+    <text x="616" y="134" text-anchor="end" fill="#1f8a4c">$6,800.00</text>
+    <text x="616" y="160" text-anchor="end" fill="#1f8a4c">$950.00</text>
+    <text x="616" y="186" text-anchor="end" fill="#1f8a4c">$10,150.00</text>
+    <text x="616" y="238" text-anchor="end" fill="#1f8a4c">$862.75</text>
+    <text x="616" y="264" text-anchor="end" fill="#1f8a4c">$11,012.75</text>
+  </g>
+
+  <rect x="44" y="277" width="2" height="18" fill="#232326" opacity="0.8"/>
+
+  <rect x="20" y="16" width="620" height="316" rx="12" fill="none" stroke="#e2e0dc" stroke-width="1"/>
+</svg>
