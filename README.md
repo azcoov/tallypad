@@ -20,7 +20,8 @@ no network, no telemetry.
 - Exponents (`^`) and built-ins: `sqrt`, `abs`, `round`, `min`, `max`
 - `#` / `//` comments and blank lines preserved
 - Light/dark themes (defaults to dark), remembered across launches
-- Autosave + restore; open/save plain `.txt` files
+- Autosave + restore (including last file path); open/save plain `.txt` files
+- Last-saved timestamp shown before the file name in the title bar
 - Click any result to copy it to the clipboard
 - No third-party runtime dependencies; the calculation engine is a small hand-written parser
 

@@ -4,8 +4,9 @@
 export function evaluateDocument(text) {
   const lines = String(text).split('\n');
 
-  // Collect active assignments across the whole document (skip comments/blanks).
-  // A variable may be used before it is defined; the last definition wins.
+  // Collect assignments for forward-reference fallback (last definition wins there).
+  // Display evaluation walks top-to-bottom with a running scope so redefinitions
+  // only affect later lines — sequential notepad semantics.
   const defs = new Map();
   for (const raw of lines) {
     const trimmed = raw.trim();
@@ -14,8 +15,15 @@ export function evaluateDocument(text) {
     if (assignment) defs.set(assignment.name, assignment.expr);
   }
 
-  const scope = resolveScope(defs);
-  const currencies = resolveCurrencies(defs);
+  const finalCurrencies = resolveCurrencies(defs);
+  const finalScope = resolveScope(defs, finalCurrencies);
+  const runningScope = new Map();
+  const runningCurrencies = new Map();
+  // Names whose sequential assignment failed: do not fall back to finalScope
+  // (prevents mixed-currency / failed defs from leaking a numeric value later).
+  const noFallback = new Set();
+  const scope = hybridMap(runningScope, finalScope, noFallback);
+  const currencies = hybridMap(runningCurrencies, finalCurrencies, noFallback);
 
   // Single sequential pass. `block` accumulates the value-bearing lines since the
   // last blank line so a `sum` line can total them (currency-aware).
@@ -28,40 +36,82 @@ export function evaluateDocument(text) {
       out.push({ raw, result: null, error: null });
       continue;
     }
-    if (trimmed.toLowerCase() === 'sum') {
-      const value = block.reduce((acc, entry) => acc + entry.value, 0);
-      const currency = (block.find((entry) => entry.currency) || {}).currency || null;
-      const decimals = block.reduce((max, entry) => Math.max(max, entry.decimals), 0);
-      out.push({ raw, result: formatValue(value, currency, decimals), error: null });
+    // Bare `sum` (any case) totals the block unless the document also assigns a
+    // variable named sum/Sum/SUM (case-insensitive); then it is a normal reference.
+    if (trimmed.toLowerCase() === 'sum' && !defsHasNameIgnoreCase(defs, 'sum')) {
+      try {
+        const value = block.reduce((acc, entry) => acc + entry.value, 0);
+        const currency = sumCurrency(block);
+        const decimals = block.reduce((max, entry) => Math.max(max, entry.decimals), 0);
+        out.push({ raw, result: formatValue(value, currency, decimals), error: null });
+      } catch (err) {
+        out.push({ raw, result: null, error: err.message });
+      }
       continue;
     }
+    const assignment = matchAssignment(trimmed);
     try {
-      const assignment = matchAssignment(trimmed);
       const expr = assignment ? assignment.expr : trimmed;
       const value = evaluateExpression(expr, scope);
-      const currency = assignment
-        ? currencies.get(assignment.name)
-        : inferCurrency(expr, currencies);
+      const currency = currencyForExpr(expr, currencies);
+      if (assignment) {
+        runningScope.set(assignment.name, value);
+        runningCurrencies.set(assignment.name, currency);
+        noFallback.delete(assignment.name);
+      }
       const decimals = literalDecimals(expr) ?? 0;
       out.push({ raw, result: formatValue(value, currency, decimals), error: null });
       block.push({ value, currency, decimals });
     } catch (err) {
+      // Failed assignment: keep any prior running value; otherwise block finalScope
+      // fallback so later lines do not see a value this line rejected.
+      if (assignment && !runningScope.has(assignment.name)) {
+        noFallback.add(assignment.name);
+      }
       out.push({ raw, result: null, error: err.message });
     }
   }
   return { lines: out };
 }
 
+// Map-like view: prefer `primary` (running), fall back to `fallback` (final/forward),
+// unless `noFallback` has blocked the key after a failed sequential assignment.
+function hybridMap(primary, fallback, noFallback = new Set()) {
+  return {
+    has(key) {
+      if (primary.has(key)) return true;
+      if (noFallback.has(key)) return false;
+      return fallback.has(key);
+    },
+    get(key) {
+      if (primary.has(key)) return primary.get(key);
+      if (noFallback.has(key)) return undefined;
+      return fallback.get(key);
+    },
+    set(key, value) { primary.set(key, value); },
+  };
+}
+
+function defsHasNameIgnoreCase(defs, name) {
+  const target = name.toLowerCase();
+  for (const key of defs.keys()) {
+    if (key.toLowerCase() === target) return true;
+  }
+  return false;
+}
+
 // Resolve every assignment's value against the whole document, allowing forward
 // references. Repeats until no further variable can be resolved; anything still
-// unresolved (missing dependency or a cycle) is simply left out of scope.
-function resolveScope(defs) {
+// unresolved (missing dependency, cycle, or mixed currencies) is left out of scope.
+function resolveScope(defs, currencies = new Map()) {
   const scope = new Map();
   let progressed = true;
   while (progressed) {
     progressed = false;
     for (const [name, expr] of defs) {
       if (scope.has(name)) continue;
+      // Never put mixed-currency defs into the forward-ref scope.
+      if (isMixedCurrencyExpr(expr, currencies, defs)) continue;
       try {
         scope.set(name, evaluateExpression(expr, scope));
         progressed = true;
@@ -71,9 +121,23 @@ function resolveScope(defs) {
   return scope;
 }
 
+// True when an expression mixes two or more currency symbols (literals or refs).
+function isMixedCurrencyExpr(expr, currencies, defs) {
+  const symbols = literalCurrencySymbols(expr);
+  if (symbols.size > 1) return true;
+  const refs = (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter((id) => defs.has(id));
+  for (const id of refs) {
+    const c = currencies.get(id);
+    if (c) symbols.add(c);
+    if (symbols.size > 1) return true;
+  }
+  return false;
+}
+
 // Resolve each variable's currency symbol document-wide (also forward-reference
 // and cycle safe). A literal symbol on the line wins; otherwise inherit from the
 // first referenced variable that carries one. Unresolvable names settle to null.
+// Mixed symbols leave currency null; resolveScope excludes those names entirely.
 function resolveCurrencies(defs) {
   const currencies = new Map();
   let progressed = true;
@@ -81,11 +145,18 @@ function resolveCurrencies(defs) {
     progressed = false;
     for (const [name, expr] of defs) {
       if (currencies.has(name)) continue;
-      const literal = expr.match(/[$€£¥]/);
-      if (literal) { currencies.set(name, literal[0]); progressed = true; continue; }
+      const symbols = literalCurrencySymbols(expr);
+      if (symbols.size > 1) { currencies.set(name, null); progressed = true; continue; }
+      if (symbols.size === 1) { currencies.set(name, [...symbols][0]); progressed = true; continue; }
       const refs = (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter((id) => defs.has(id));
-      const withCurrency = refs.find((id) => currencies.get(id));
-      if (withCurrency) { currencies.set(name, currencies.get(withCurrency)); progressed = true; continue; }
+      const refSymbols = new Set();
+      for (const id of refs) {
+        if (!currencies.has(id)) continue;
+        const c = currencies.get(id);
+        if (c) refSymbols.add(c);
+      }
+      if (refSymbols.size > 1) { currencies.set(name, null); progressed = true; continue; }
+      if (refSymbols.size === 1) { currencies.set(name, [...refSymbols][0]); progressed = true; continue; }
       if (refs.every((id) => currencies.has(id))) { currencies.set(name, null); progressed = true; }
     }
   }
@@ -93,17 +164,31 @@ function resolveCurrencies(defs) {
   return currencies;
 }
 
-// Decide a line's currency: a symbol written on the line wins; otherwise inherit
-// from the first referenced variable that carries one. Returns a symbol or null.
-function inferCurrency(exprText, currencies) {
-  const literal = exprText.match(/[$€£¥]/);
-  if (literal) return literal[0];
+function literalCurrencySymbols(exprText) {
+  return new Set(exprText.match(/[$€£¥]/g) || []);
+}
+
+// Currency for a line: all literal symbols and referenced variable currencies
+// must agree. Mixed currencies are an error (no silent conversion).
+function currencyForExpr(exprText, currencies) {
+  const symbols = literalCurrencySymbols(exprText);
   const idents = exprText.match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
   for (const id of idents) {
+    if (!currencies.has(id)) continue;
     const c = currencies.get(id);
-    if (c) return c;
+    if (c) symbols.add(c);
   }
-  return null;
+  if (symbols.size > 1) throw new Error('Mixed currencies');
+  return symbols.size === 1 ? [...symbols][0] : null;
+}
+
+function sumCurrency(block) {
+  const symbols = new Set();
+  for (const entry of block) {
+    if (entry.currency) symbols.add(entry.currency);
+  }
+  if (symbols.size > 1) throw new Error('Mixed currencies');
+  return symbols.size === 1 ? [...symbols][0] : null;
 }
 
 function formatValue(n, currency, minDecimals = 0) {
@@ -127,9 +212,17 @@ export function tokenize(input) {
     if (c === ' ' || c === '\t') { i++; continue; }
     if (isDigit(c) || (c === '.' && isDigit(input[i + 1]))) {
       let num = '';
+      let dots = 0;
       while (i < input.length) {
         const ch = input[i];
-        if (isDigit(ch) || ch === '.') { num += ch; i++; continue; }
+        if (isDigit(ch)) { num += ch; i++; continue; }
+        if (ch === '.') {
+          dots += 1;
+          if (dots > 1) throw new Error('Invalid number');
+          num += ch;
+          i++;
+          continue;
+        }
         // Treat a comma as a thousands separator only when followed by exactly
         // three digits; otherwise it is an argument separator (e.g. max(10,000, 5)).
         if (ch === ',' && isDigit(input[i + 1]) && isDigit(input[i + 2]) &&
@@ -222,25 +315,27 @@ class Parser {
   next() { return this.tokens[this.pos++]; }
   expectEnd() { if (this.pos < this.tokens.length) throw new Error('Unexpected trailing input'); }
 
-  parseExpression() { return this.parseOf(); }
+  parseExpression() { return this.parseAddition(); }
 
-  // lowest precedence: "A of B" (A already a fraction from %, so multiply)
-  parseOf() {
-    let left = this.parseAddition();
-    while (this.peek() && this.peek().type === 'ident' && this.peek().value === 'of') {
-      this.next();
-      left = left * this.parseAddition();
+  // + and - bind looser than "of", so `20% of 100 + 50` is (20% of 100) + 50.
+  parseAddition() {
+    let left = this.parseOf();
+    while (this.peek() && this.peek().type === 'op' &&
+           (this.peek().value === '+' || this.peek().value === '-')) {
+      const op = this.next().value;
+      const right = this.parseOf();
+      left = op === '+' ? left + right : left - right;
     }
     return left;
   }
 
-  parseAddition() {
+  // "A of B" multiplies (A is typically a fraction from %). Binds tighter than +/−
+  // and looser than *∕ so `2 * 20% of 100` is (2 * 20%) of 100.
+  parseOf() {
     let left = this.parseTerm();
-    while (this.peek() && this.peek().type === 'op' &&
-           (this.peek().value === '+' || this.peek().value === '-')) {
-      const op = this.next().value;
-      const right = this.parseTerm();
-      left = op === '+' ? left + right : left - right;
+    while (this.peek() && this.peek().type === 'ident' && this.peek().value === 'of') {
+      this.next();
+      left = left * this.parseTerm();
     }
     return left;
   }

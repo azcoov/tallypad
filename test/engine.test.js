@@ -60,6 +60,11 @@ test('"A% of B" computes a percentage of a value', () => {
   assert.equal(evaluateDocument('20% of 15,000').lines[0].result, '3,000');
 });
 
+test('"of" binds tighter than addition', () => {
+  // Natural-language: (20% of 100) + 50, not 20% of (100 + 50).
+  assert.equal(evaluateDocument('20% of 100 + 50').lines[0].result, '70');
+});
+
 test('division by zero is an error, not Infinity', () => {
   const line = evaluateDocument('5 / 0').lines[0];
   assert.equal(line.result, null);
@@ -164,7 +169,77 @@ test('circular references resolve to an error, not a hang', () => {
   assert.equal(lines[1].result, null);
 });
 
-test('the last definition of a redefined variable wins document-wide', () => {
+test('the last definition of a redefined variable wins for later lines', () => {
   const { lines } = evaluateDocument('x = 10\nx = 20\nx + 1');
   assert.equal(lines[2].result, '21');
+});
+
+test('redefinitions are sequential: earlier lines see earlier values', () => {
+  const { lines } = evaluateDocument('x = 10\nx * 2\nx = 5\nx * 2');
+  assert.equal(lines[0].result, '10');
+  assert.equal(lines[1].result, '20');
+  assert.equal(lines[2].result, '5');
+  assert.equal(lines[3].result, '10');
+});
+
+test('assignment captures the value of x at that line, not a later redefinition', () => {
+  const { lines } = evaluateDocument('price = 100\ndiscount = 10% of price\nprice = 200\ndiscount');
+  assert.equal(lines[1].result, '10');
+  assert.equal(lines[3].result, '10');
+});
+
+test('invalid numbers with multiple dots are errors', () => {
+  const line = evaluateDocument('1.2.3').lines[0];
+  assert.equal(line.result, null);
+  assert.match(line.error, /Invalid number|Unexpected/);
+});
+
+test('mixed currencies on one line are an error', () => {
+  const line = evaluateDocument('$10 + €5').lines[0];
+  assert.equal(line.result, null);
+  assert.match(line.error, /Mixed currencies/i);
+});
+
+test('mixed currencies across a sum block are an error', () => {
+  const { lines } = evaluateDocument('$10\n€5\nsum');
+  assert.equal(lines[2].result, null);
+  assert.match(lines[2].error, /Mixed currencies/i);
+});
+
+test('failed mixed-currency assignment does not leak a value to later lines', () => {
+  const { lines } = evaluateDocument('x = $10 + €5\nx');
+  assert.equal(lines[0].result, null);
+  assert.match(lines[0].error, /Mixed currencies/i);
+  assert.equal(lines[1].result, null);
+  assert.match(lines[1].error, /Unknown variable/);
+});
+
+test('mixed-currency assignment is excluded from forward-reference scope', () => {
+  const { lines } = evaluateDocument('total = x\nx = $10 + €5');
+  assert.equal(lines[0].result, null);
+  assert.match(lines[0].error, /Unknown variable/);
+  assert.equal(lines[1].result, null);
+  assert.match(lines[1].error, /Mixed currencies/i);
+});
+
+test('bare sum is a variable when sum is assigned in the document', () => {
+  const { lines } = evaluateDocument('sum = 5\n10\nsum');
+  // Not a block total (5+10=15); the variable value is 5.
+  assert.equal(lines[2].result, '5');
+});
+
+test('bare SUM is a variable when SUM is assigned (case-insensitive keyword disable)', () => {
+  const { lines } = evaluateDocument('SUM = 5\n10\nSUM');
+  assert.equal(lines[0].result, '5');
+  assert.equal(lines[2].result, '5');
+});
+
+test('bare sum still totals the block when sum is not a variable', () => {
+  const { lines } = evaluateDocument('10\n20\nsum');
+  assert.equal(lines[2].result, '30');
+});
+
+test('bare SUM still totals the block when no sum variable exists', () => {
+  const { lines } = evaluateDocument('10\n20\nSUM');
+  assert.equal(lines[2].result, '30');
 });

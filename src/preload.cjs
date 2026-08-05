@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld('tallypad', {
   getZoom: () => ipcRenderer.invoke('zoom:get'),
   setZoom: (fontSize) => ipcRenderer.send('zoom:set', fontSize),
   onMenu: (handler) => ipcRenderer.on('menu', (_e, action, arg) => handler(action, arg)),
-  onFileName: (handler) => ipcRenderer.on('file-name', (_e, name) => handler(name)),
+  // payload: { name: string, lastSavedAt: number|null }
+  onFileName: (handler) => ipcRenderer.on('file-name', (_e, payload) => handler(payload)),
   setDirty: (dirty, text) => ipcRenderer.send('doc:set-dirty', { dirty, text }),
   guardDiscard: (text) => ipcRenderer.invoke('doc:guard-discard', text),
 });
