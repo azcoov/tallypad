@@ -219,11 +219,13 @@ app.whenReady().then(() => {
         sandbox: true,
       },
     });
-    windowState.set(win.webContents.id, state);
+    // Capture before close: win.webContents is already destroyed when 'closed' fires.
+    const contentsId = win.webContents.id;
+    windowState.set(contentsId, state);
     win.loadFile(join(__dirname, 'renderer', 'index.html'));
     win.on('resize', () => persistBounds(win));
     win.on('move', () => persistBounds(win));
-    win.on('closed', () => { windowState.delete(win.webContents.id); });
+    win.on('closed', () => { windowState.delete(contentsId); });
     win.on('close', (e) => {
       if (!win.isDestroyed() && !win.isMinimized()) {
         writeSettings(settingsPath, { window: win.getBounds() });

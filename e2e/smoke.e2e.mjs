@@ -62,3 +62,30 @@ test('editing marks the document modified', async () => {
     await kill(app);
   }
 });
+
+// The canonical example loads clean (not dirty), so close should not prompt.
+// Historically the 'closed' handler read win.webContents after Electron had
+// already destroyed it, which popped the "Object has been destroyed" dialog.
+test('closing a clean window does not throw in the main process', async () => {
+  const { app } = await launch();
+  try {
+    const messages = await app.evaluate(({ app, BrowserWindow }) => new Promise((resolve) => {
+      // Stay alive after the last window closes so we can read the result.
+      app.removeAllListeners('window-all-closed');
+      const caught = [];
+      process.on('uncaughtException', (err) => {
+        caught.push(err && err.message ? err.message : String(err));
+      });
+      const win = BrowserWindow.getAllWindows()[0];
+      try {
+        win.close();
+      } catch (err) {
+        caught.push(err.message);
+      }
+      setTimeout(() => resolve(caught), 300);
+    }));
+    assert.deepEqual(messages, []);
+  } finally {
+    await kill(app);
+  }
+});
